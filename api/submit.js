@@ -29,7 +29,9 @@ module.exports = async function handler(req, res) {
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const submitTime = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const dateTs = new Date(date).getTime();
+    // 手动解析日期避免时区偏移，用UTC noon
+    const [dy, dm, dd] = date.split('-').map(Number);
+    const dateTs = Date.UTC(dy, dm - 1, dd, 12, 0, 0);
 
     const record = {
       fields: {
