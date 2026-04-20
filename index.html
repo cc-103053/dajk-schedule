@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>大健康四组 · 直播排期填报</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f0f4f8;font-family:-apple-system,BlinkMacSystemFont,'PingFang SC','Helvetica Neue',sans-serif;min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);width:100%;max-width:480px;overflow:hidden}
+.header{background:linear-gradient(135deg,#ff2442,#ff6b6b);padding:28px 24px;color:#fff}
+.header h1{font-size:20px;font-weight:700;margin-bottom:4px}
+.header p{font-size:13px;opacity:.85}
+.body{padding:24px}
+.form-group{margin-bottom:18px}
+label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:6px}
+label .req{color:#ff2442;margin-left:2px}
+input,select,textarea{width:100%;border:1.5px solid #e5e7eb;border-radius:10px;padding:11px 14px;font-size:15px;color:#111;background:#fafafa;outline:none;transition:border .2s}
+input:focus,select:focus,textarea:focus{border-color:#ff2442;background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+textarea{resize:none;height:80px;font-family:inherit}
+.hint{font-size:11px;color:#9ca3af;margin-top:4px}
+.btn{width:100%;background:linear-gradient(135deg,#ff2442,#ff6b6b);color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;transition:opacity .2s;letter-spacing:.5px}
+.btn:active{opacity:.85}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{display:none;border-radius:10px;padding:14px 16px;font-size:14px;margin-top:14px;text-align:center}
+.msg.success{background:#f0fdf4;color:#166534;border:1px solid #bbf7d0}
+.msg.error{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.divider{height:1px;background:#f3f4f6;margin:4px 0 18px}
+/* 搜索下拉 */
+.autocomplete{position:relative}
+.dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border:1.5px solid #e5e7eb;border-radius:10px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.1);display:none}
+.dropdown.show{display:block}
+.dropdown-item{padding:10px 14px;font-size:14px;cursor:pointer;color:#111}
+.dropdown-item:hover,.dropdown-item.active{background:#fff0f2;color:#ff2442}
+.dropdown-empty{padding:12px 14px;font-size:13px;color:#9ca3af;text-align:center}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <h1>&#x1F4E1; 直播排期填报</h1>
+    <p>大健康四组 · 请如实填写本场直播计划</p>
+  </div>
+  <div class="body">
+    <div class="form-group">
+      <label>店铺名称<span class="req">*</span></label>
+      <div class="autocomplete">
+        <input type="text" id="shopInput" placeholder="输入店铺名搜索..." autocomplete="off" oninput="onShopInput()" onfocus="onShopFocus()" onblur="onShopBlur()">
+        <div class="dropdown" id="shopDropdown"></div>
+      </div>
+      <input type="hidden" id="shopName">
+    </div>
+
+    <div class="form-group">
+      <label>直播日期<span class="req">*</span></label>
+      <input type="date" id="date" min="">
+    </div>
+
+    <div class="form-group">
+      <label>开播 / 结束时间<span class="req">*</span></label>
+      <div class="row">
+        <input type="time" id="startTime" placeholder="开播时间">
+        <input type="time" id="endTime" placeholder="结束时间">
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="form-group">
+      <label>预估GMV（元）</label>
+      <input type="number" id="gmv" placeholder="例如：50000" min="0">
+      <div class="hint">&#x1F525; 预估 ≥ 150,000 元将标记为大场</div>
+    </div>
+
+    <div class="form-group">
+      <label>备注</label>
+      <textarea id="remark" placeholder="如有特殊活动、合作达人等请备注..."></textarea>
+    </div>
+
+    <button class="btn" id="submitBtn" onclick="doSubmit()">提交排期</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</div>
+
+<script>
+// ---- 商家名单（从飞书接口加载，fallback静态列表）----
+// 静态备用名单（部分示例，实际用飞书API拉取）
+var SHOPS = [];
+
+// 加载商家名单（可替换为实际接口）
+async function loadShops() {
+  try {
+    const r = await fetch('shops.json');
+    if (r.ok) SHOPS = await r.json();
+  } catch(e) {}
+}
+loadShops();
+
+// 设置日期最小值为今天
+var today = new Date();
+document.getElementById('date').min = today.toISOString().split('T')[0];
+document.getElementById('date').value = today.toISOString().split('T')[0];
+
+// ---- 搜索下拉 ----
+var blurTimer;
+function onShopInput() {
+  var val = document.getElementById('shopInput').value.trim();
+  document.getElementById('shopName').value = val;
+  renderDropdown(val);
+}
+function onShopFocus() {
+  clearTimeout(blurTimer);
+  renderDropdown(document.getElementById('shopInput').value.trim());
+}
+function onShopBlur() {
+  blurTimer = setTimeout(function(){
+    document.getElementById('shopDropdown').classList.remove('show');
+  }, 200);
+}
+function renderDropdown(val) {
+  var dd = document.getElementById('shopDropdown');
+  if (!val) { dd.classList.remove('show'); return; }
+  var matches = SHOPS.filter(function(s){ return s.indexOf(val) !== -1; }).slice(0, 30);
+  if (matches.length === 0) {
+    dd.innerHTML = '<div class="dropdown-empty">未找到匹配店铺，可直接输入</div>';
+  } else {
+    dd.innerHTML = matches.map(function(s){
+      return '<div class="dropdown-item" onmousedown="selectShop(\'' + s.replace(/'/g,"\\'") + '\')">' + s + '</div>';
+    }).join('');
+  }
+  dd.classList.add('show');
+}
+function selectShop(name) {
+  document.getElementById('shopInput').value = name;
+  document.getElementById('shopName').value = name;
+  document.getElementById('shopDropdown').classList.remove('show');
+}
+
+// ---- 提交 ----
+async function doSubmit() {
+  var shopName = document.getElementById('shopName').value || document.getElementById('shopInput').value;
+  var date = document.getElementById('date').value;
+  var startTime = document.getElementById('startTime').value;
+  var endTime = document.getElementById('endTime').value;
+  var gmv = document.getElementById('gmv').value;
+  var remark = document.getElementById('remark').value;
+
+  if (!shopName) return showMsg('error', '请输入店铺名称');
+  if (!date) return showMsg('error', '请选择直播日期');
+  if (!startTime) return showMsg('error', '请填写开播时间');
+  if (!endTime) return showMsg('error', '请填写结束时间');
+
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = '提交中...';
+
+  try {
+    var r = await fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shopName, date, startTime, endTime, gmv, remark })
+    });
+    var data = await r.json();
+    if (data.success) {
+      showMsg('success', '&#x2705; 提交成功！感谢填报，AM会与您确认');
+      // 重置表单
+      document.getElementById('shopInput').value = '';
+      document.getElementById('shopName').value = '';
+      document.getElementById('gmv').value = '';
+      document.getElementById('remark').value = '';
+      document.getElementById('startTime').value = '';
+      document.getElementById('endTime').value = '';
+    } else {
+      showMsg('error', data.error || '提交失败，请重试');
+    }
+  } catch(e) {
+    showMsg('error', '网络错误，请检查网络后重试');
+  }
+  btn.disabled = false;
+  btn.textContent = '提交排期';
+}
+
+function showMsg(type, text) {
+  var el = document.getElementById('msg');
+  el.className = 'msg ' + type;
+  el.innerHTML = text;
+  el.style.display = 'block';
+  if (type === 'success') setTimeout(function(){ el.style.display='none'; }, 5000);
+}
+</script>
+</body>
+</html>
