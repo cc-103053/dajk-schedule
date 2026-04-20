@@ -29,14 +29,10 @@ module.exports = async function handler(req, res) {
     const now = new Date();
     const pad = n => String(n).padStart(2, '0');
     const submitTime = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    // 手动解析日期避免时区偏移，用UTC noon
-    const [dy, dm, dd] = date.split('-').map(Number);
-    const dateTs = Date.UTC(dy, dm - 1, dd, 12, 0, 0);
-
     const record = {
       fields: {
         "\u6587\u672c": shopName,
-        "\u76f4\u64ad\u65e5\u671f": dateTs,
+        "\u76f4\u64ad\u65e5\u671f": date,
         "\u5f00\u64ad\u65f6\u95f4": startTime,
         "\u7ed3\u675f\u65f6\u95f4": endTime,
         "\u9884\u4f30GMV\uff08\u5143\uff09": Number(gmv) || 0,
