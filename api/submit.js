@@ -1,5 +1,5 @@
-// Vercel Serverless Function - 保护飞书Token，中转商家提交
-export default async function handler(req, res) {
+// Vercel Serverless Function (Node.js runtime)
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    // 1. 获取飞书Token
+    // 1. 获取飞书 tenant_access_token
     const authRes = await fetch('https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -25,9 +25,10 @@ export default async function handler(req, res) {
     const token = authData.tenant_access_token;
     if (!token) throw new Error('飞书鉴权失败');
 
-    // 2. 写入多维表格（日期字段传毫秒时间戳）
+    // 2. 写入多维表格
     const now = new Date();
-    const submitTime = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+    const pad = n => String(n).padStart(2, '0');
+    const submitTime = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
     const dateTs = new Date(date).getTime();
 
     const record = {
@@ -58,4 +59,4 @@ export default async function handler(req, res) {
     console.error(e);
     return res.status(500).json({ error: e.message || '服务器错误，请稍后重试' });
   }
-}
+};
